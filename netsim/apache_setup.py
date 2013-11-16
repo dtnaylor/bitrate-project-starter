@@ -4,6 +4,7 @@ sys.path.append('../common')
 import os
 import shutil
 import logging
+import platform
 from util import check_output, strip_comments
 
 NETSIM_STRING = '# Modified by netsim'
@@ -38,6 +39,8 @@ Listen %s:8080
 
 </VirtualHost>'''
 
+LINUX = platform.linux_distribution()[0]
+
 def is_apache_configured_ubuntu():
     found = False
     try:
@@ -65,8 +68,10 @@ def is_apache_configured_fedora():
     return found
 
 def is_apache_configured():
-    #return is_apache_configured_ubuntu()
-    return is_apache_configured_fedora()
+    if  LINUX == 'Ubuntu':
+        return is_apache_configured_ubuntu()
+    else:
+        return is_apache_configured_fedora()
 
 
 def configure_apache_fedora(ip_list):
@@ -121,8 +126,10 @@ def configure_apache_ubuntu(ip_list):
 
 # Prepare apache VirtualHost for each server ip in ip_list
 def configure_apache(ip_list):
-    #configure_apache_ubuntu(ip_list)
-    configure_apache_fedora(ip_list)
+    if LINUX == 'Ubuntu':
+        configure_apache_ubuntu(ip_list)
+    else:
+        configure_apache_fedora(ip_list)
 
 
 def reset_apache_fedora(ip_list):
@@ -159,8 +166,10 @@ def reset_apache_ubuntu(ip_list):
 
 # Put apache back to normal
 def reset_apache(ip_list):
-    #reset_apache_ubuntu(ip_list)
-    reset_apache_fedora(ip_list)
+    if LINUX == 'Ubuntu':
+        reset_apache_ubuntu(ip_list)
+    else:
+        reset_apache_fedora(ip_list)
 
 
 def restart_apache_fedora():
@@ -170,5 +179,7 @@ def restart_apache_ubuntu():
     check_output('%s restart' % APACHE_UBUNTU, shouldPrint=False)
 
 def restart_apache():
-    #restart_apache_ubuntu()
-    restart_apache_fedora()
+    if LINUX == 'Ubuntu':
+        restart_apache_ubuntu()
+    else:
+        restart_apache_fedora()

@@ -1,4 +1,4 @@
-import sys
+import sys, select, time
 from subprocess import Popen, PIPE, STDOUT
 
 def check_output(args, shouldPrint=True):
@@ -7,12 +7,18 @@ def check_output(args, shouldPrint=True):
 def check_both(args, shouldPrint=True, check=True):
     out = ""
     p = Popen(args,shell=True,stdout=PIPE,stderr=STDOUT)
-    while True:
-        line = p.stdout.readline()
-        if not line:
-            break
-        if shouldPrint: sys.stdout.write(line)
-        out += line
+    poll_obj = select.poll()
+    poll_obj.register(p.stdout, select.POLLIN)
+    t = time.time()
+    while (time.time() - t) < 3:
+        poll_result = poll_obj.poll(0)
+        if poll_result:
+            line = p.stdout.readline()
+            if not line:
+                break
+            if shouldPrint: sys.stdout.write(line)
+            out += line
+            t = time.time()
     rc = p.wait()
     out = (out,"")
     out = (out, rc)
