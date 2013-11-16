@@ -12,8 +12,8 @@ from apache_setup import configure_apache, reset_apache, restart_apache, is_apac
 
 # click
 CLICK_CONF = 'autogen.click'
-#CLICK = '~/click-2.0.1/userlevel/click'
 CLICK = '/usr/local/bin/click'
+CLICK_LOCAL = '~/click-2.0.1/userlevel/click'
 
 # tc
 TC_SETUP = './tc_setup.py'
@@ -164,7 +164,10 @@ def start_network():
     # Create fake NICs
     logging.getLogger(__name__).info('Creating network interfaces...')
     autogen_click_conf(get_topo_file('servers'), get_topo_file('clients'), get_topo_file('dns'))
-    run_bg('%s %s' % (CLICK, CLICK_CONF))
+    if os.path.isfile(CLICK):
+        run_bg('%s %s' % (CLICK, CLICK_CONF))
+    else:
+        run_bg('%s %s' % (CLICK_LOCAL, CLICK_CONF))
 
     # Set up traffic shaping
     logging.getLogger(__name__).info('Enabling traffic shaping...')
