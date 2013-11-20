@@ -19,23 +19,26 @@ APACHE_UBUNTU_SITES_ENABLED = '/etc/apache2/sites-enabled'
 APACHE_RHEL = '/usr/sbin/httpd'
 APACHE_RHEL_CONF = '/etc/httpd/conf/httpd.conf'
 APACHE_RHEL_CONF_BAK = '/etc/httpd/conf/httpd.conf.bak'
+APACHE_RHEL_DOC_ROOT = '/var/www/html'
 
 APACHE_FEDORA = '/usr/local/apache2/bin/httpd'
 APACHE_FEDORA_CONF = '/usr/local/apache2/conf/httpd.conf'
 APACHE_FEDORA_CONF_BAK = '/usr/local/apache2/conf/httpd.conf.bak'
+APACHE_FEDORA_DOC_ROOT = '/var/www'
 
 APACHE_VIRTUAL_HOST_TEMPLATE = '''
 
 Listen %s:8080
 <VirtualHost %s:8080>
     ServerAdmin webmaster@localhost
+    ServerName video.cs.cmu.edu:8080
 
-    DocumentRoot /var/www
+    DocumentRoot %s
     <Directory />
         Options FollowSymLinks
         AllowOverride None
     </Directory>
-    <Directory /var/www/>
+    <Directory %s/>
         Options Indexes FollowSymLinks MultiViews
         AllowOverride None
         Order allow,deny
@@ -81,7 +84,7 @@ def is_apache_configured():
         return is_apache_configured_single_conf(APACHE_RHEL_CONF)
 
 
-def configure_apache_single_conf(ip_list, conf, conf_bak):
+def configure_apache_single_conf(ip_list, conf, conf_bak, doc_root):
     try:
         # back up the existing httpd.conf
         shutil.copyfile(conf, conf_bak)
@@ -89,7 +92,7 @@ def configure_apache_single_conf(ip_list, conf, conf_bak):
         with open(conf, 'a') as conffile:
             conffile.write('%s\n' % NETSIM_STRING)
             for ip in ip_list:
-                conffile.write(APACHE_VIRTUAL_HOST_TEMPLATE % (ip, ip))
+                conffile.write(APACHE_VIRTUAL_HOST_TEMPLATE % (ip, ip, doc_root, doc_root))
         conffile.closed
             
 
@@ -137,9 +140,11 @@ def configure_apache(ip_list):
         configure_apache_split_conf(ip_list, APACHE_UBUNTU_PORTS, APACHE_UBUNTU_PORTS_BAK,\
             APACHE_UBUNTU_SITES_AVAILABLE, APACHE_UBUNTU_SITES_ENABLED)
     elif LINUX == 'Fedora':
-        configure_apache_single_conf(ip_list, APACHE_FEDORA_CONF, APACHE_FEDORA_CONF_BAK)
+        configure_apache_single_conf(ip_list, APACHE_FEDORA_CONF,\
+            APACHE_FEDORA_CONF_BAK, APACHE_FEDORA_DOC_ROOT)
     else:
-        configure_apache_single_conf(ip_list, APACHE_RHEL_CONF, APACHE_RHEL_CONF_BAK)
+        configure_apache_single_conf(ip_list, APACHE_RHEL_CONF,\
+            APACHE_RHEL_CONF_BAK, APACHE_RHEL_DOC_ROOT)
 
 
 def reset_apache_single_conf(ip_list, conf, conf_bak):
