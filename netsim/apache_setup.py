@@ -16,10 +16,15 @@ APACHE_UBUNTU_DEFAULT_SITE = '/etc/apache2/sites-available/default'
 APACHE_UBUNTU_SITES_AVAILABLE = '/etc/apache2/sites-available'
 APACHE_UBUNTU_SITES_ENABLED = '/etc/apache2/sites-enabled'
 
+APACHE_RHEL = '/usr/sbin/httpd'
+APACHE_RHEL_CONF = '/etc/httpd/conf/httpd.conf'
+APACHE_RHEL_CONF_BAK = '/etc/httpd/conf/httpd.conf.bak'
+
 APACHE_FEDORA = '/usr/local/apache2/bin/httpd'
 APACHE_FEDORA_CONF = '/usr/local/apache2/conf/httpd.conf'
 APACHE_FEDORA_CONF_BAK = '/usr/local/apache2/conf/httpd.conf.bak'
-APACHE_FEDORA_VIRTUAL_HOST_TEMPLATE = '''
+
+APACHE_VIRTUAL_HOST_TEMPLATE = '''
 
 Listen %s:8080
 <VirtualHost %s:8080>
@@ -41,10 +46,10 @@ Listen %s:8080
 
 LINUX = platform.linux_distribution()[0]
 
-def is_apache_configured_ubuntu():
+def is_apache_configured_split_conf(ports):
     found = False
     try:
-        with open(APACHE_UBUNTU_PORTS, 'r') as portsf:
+        with open(ports, 'r') as portsf:
             for line in portsf:
                 if NETSIM_STRING in line:
                     found = True
@@ -54,10 +59,10 @@ def is_apache_configured_ubuntu():
         logging.getLogger(__name__).error(e)
     return found
 
-def is_apache_configured_fedora():
+def is_apache_configured_single_conf(conf):
     found = False
     try:
-        with open(APACHE_FEDORA_CONF, 'r') as conff:
+        with open(conf, 'r') as conff:
             for line in conff:
                 if NETSIM_STRING in line:
                     found = True
@@ -69,43 +74,45 @@ def is_apache_configured_fedora():
 
 def is_apache_configured():
     if  LINUX == 'Ubuntu':
-        return is_apache_configured_ubuntu()
+        return is_apache_configured_split_conf(APACHE_UBUNTU_PORTS)
+    elif LINUX == 'Fedora':
+        return is_apache_configured_single_conf(APACHE_FEDORA_CONF)
     else:
-        return is_apache_configured_fedora()
+        return is_apache_configured_single_conf(APACHE_RHEL_CONF)
 
 
-def configure_apache_fedora(ip_list):
+def configure_apache_single_conf(ip_list, conf, conf_bak):
     try:
         # back up the existing httpd.conf
-        shutil.copyfile(APACHE_FEDORA_CONF, APACHE_FEDORA_CONF_BAK)
+        shutil.copyfile(conf, conf_bak)
 
-        with open(APACHE_FEDORA_CONF, 'a') as conffile:
+        with open(conf, 'a') as conffile:
             conffile.write('%s\n' % NETSIM_STRING)
             for ip in ip_list:
-                conffile.write(APACHE_FEDORA_VIRTUAL_HOST_TEMPLATE % (ip, ip))
+                conffile.write(APACHE_VIRTUAL_HOST_TEMPLATE % (ip, ip))
         conffile.closed
             
 
     except Exception as e:
         logging.getLogger(__name__).error(e)
 
-def configure_apache_ubuntu(ip_list):
+def configure_apache_split_conf(ip_list, ports, ports_bak, sites_available, sites_enabled):
     try:
         # back up the existing ports.conf
-        shutil.copyfile(APACHE_UBUNTU_PORTS, APACHE_UBUNTU_PORTS_BAK)
-        with open(APACHE_UBUNTU_PORTS, 'a') as portsfile:
+        shutil.copyfile(ports, ports_bak)
+        with open(ports, 'a') as portsfile:
             portsfile.write('%s\n' % NETSIM_STRING)
         portsfile.closed
             
         for ip in ip_list:
             # append virtual hosts to ports.conf
-            with open(APACHE_UBUNTU_PORTS, 'a') as portsfile:
+            with open(ports, 'a') as portsfile:
                     portsfile.write('\n\nNameVirtualHost %s:8080\n' % ip)
                     portsfile.write('Listen %s:8080' % ip)
             portsfile.closed
 
             # make a conf file for this virtual host
-            confpath = os.path.join(APACHE_UBUNTU_SITES_AVAILABLE, ip)
+            confpath = os.path.join(sites_available, ip)
             with open(APACHE_UBUNTU_DEFAULT_SITE, 'r') as defaultfile:
                 with open(confpath, 'w') as conffile:
                     for line in defaultfile:
@@ -117,7 +124,7 @@ def configure_apache_ubuntu(ip_list):
             defaultfile.closed
 
             # symlink conf file to sites-enabled
-            linkpath = os.path.join(APACHE_UBUNTU_SITES_ENABLED, ip)
+            linkpath = os.path.join(sites_enabled, ip)
             if not os.path.islink(linkpath):
                 os.symlink(confpath, linkpath)
 
@@ -127,22 +134,25 @@ def configure_apache_ubuntu(ip_list):
 # Prepare apache VirtualHost for each server ip in ip_list
 def configure_apache(ip_list):
     if LINUX == 'Ubuntu':
-        configure_apache_ubuntu(ip_list)
+        configure_apache_split_conf(ip_list, APACHE_UBUNTU_PORTS, APACHE_UBUNTU_PORTS_BAK,\
+            APACHE_UBUNTU_SITES_AVAILABLE, APACHE_UBUNTU_SITES_ENABLED)
+    elif LINUX == 'Fedora':
+        configure_apache_single_conf(ip_list, APACHE_FEDORA_CONF, APACHE_FEDORA_CONF_BAK)
     else:
-        configure_apache_fedora(ip_list)
+        configure_apache_single_conf(ip_list, APACHE_RHEL_CONF, APACHE_RHEL_CONF_BAK)
 
 
-def reset_apache_fedora(ip_list):
+def reset_apache_single_conf(ip_list, conf, conf_bak):
     try: 
         # restore ports.conf from backup
-        if os.path.isfile(APACHE_FEDORA_CONF_BAK):
-            shutil.move(APACHE_FEDORA_CONF_BAK, APACHE_FEDORA_CONF)
+        if os.path.isfile(conf_bak):
+            shutil.move(conf_bak, conf)
         else:
-            logging.getLogger(__name__).warning('Could not find %s' % APACHE_FEDORA_CONF_BAK)
+            logging.getLogger(__name__).warning('Could not find %s' % conf_bak)
     except Exception as e:
         logging.getLogger(__name__).error(e)
 
-def reset_apache_ubuntu(ip_list):
+def reset_apache_split_conf(ip_list, ports, ports_bak, sites_available, sites_enabled):
     try:
         # restore ports.conf from backup
         if os.path.isfile(APACHE_UBUNTU_PORTS_BAK):
@@ -167,19 +177,24 @@ def reset_apache_ubuntu(ip_list):
 # Put apache back to normal
 def reset_apache(ip_list):
     if LINUX == 'Ubuntu':
-        reset_apache_ubuntu(ip_list)
+        reset_apache_split_conf(ip_list, APACHE_UBUNTU_PORTS, APACHE_UBUNTU_PORTS_BAK,\
+            APACHE_UBUNTU_SITES_AVAILABLE, APACHE_UBUNTU_SITES_ENABLED)
+    elif LINUX == 'Fedora':
+        reset_apache_single_conf(ip_list, APACHE_FEDORA_CONF, APACHE_FEDORA_CONF_BAK)
     else:
-        reset_apache_fedora(ip_list)
+        reset_apache_single_conf(ip_list, APACHE_RHEL_CONF, APACHE_RHEL_CONF_BAK)
 
 
-def restart_apache_fedora():
-    check_output('%s -k restart' % APACHE_FEDORA, shouldPrint=True)
+def restart_apache_binary(bin):
+    check_output('%s -k restart' % bin, shouldPrint=True)
 
-def restart_apache_ubuntu():
-    check_output('%s restart' % APACHE_UBUNTU, shouldPrint=False)
+def restart_apache_script(script):
+    check_output('%s restart' % script, shouldPrint=False)
 
 def restart_apache():
     if LINUX == 'Ubuntu':
-        restart_apache_ubuntu()
+        restart_apache_script(APACHE_UBUNTU)
+    elif LINUX == 'Fedora':
+        restart_apache_binary(APACHE_FEDORA)
     else:
-        restart_apache_fedora()
+        restart_apache_binary(APACHE_RHEL)
