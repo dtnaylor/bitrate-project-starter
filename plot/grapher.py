@@ -3,6 +3,7 @@
 import sys
 import numpy as np
 import matplotlib as mpl
+mpl.use('agg')
 import matplotlib.pyplot as plt
 import operator
 from collections import defaultdict
