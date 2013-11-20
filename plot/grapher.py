@@ -128,6 +128,7 @@ for l in nsl:
     BW.append((t, bw))
 #BW = 1000000 / 1000 # 1Mbit
 util = []
+t = 1000
 for i, (x,y) in enumerate(TPUT_y):
     for b in BW:
         if i >= b[0]:
