@@ -89,8 +89,17 @@ def configure_apache_single_conf(ip_list, conf, conf_bak, doc_root):
         # back up the existing httpd.conf
         shutil.copyfile(conf, conf_bak)
 
+        found = False
+        with open(conf, 'r') as conffile:
+            for line in conffile:
+                if 'ServerName' in line and line[0] != '#':
+                    found = True
+                    break
+        conffile.closed
         with open(conf, 'a') as conffile:
             conffile.write('%s\n' % NETSIM_STRING)
+            if not found:
+                conffile.write('\nServerName www.example.com:80\n')
             for ip in ip_list:
                 conffile.write(APACHE_VIRTUAL_HOST_TEMPLATE % (ip, ip, doc_root, doc_root))
         conffile.closed
@@ -154,6 +163,20 @@ def reset_apache_single_conf(ip_list, conf, conf_bak):
             shutil.move(conf_bak, conf)
         else:
             logging.getLogger(__name__).warning('Could not find %s' % conf_bak)
+
+        # TODO: clean this up
+        found = False
+        if os.path.isfile(conf):
+            with open(conf, 'r') as conffile:
+                for line in conffile:
+                    if 'ServerName' in line and line[0] != '#':
+                        found = True
+                        break
+            conffile.closed
+        if not found:
+            with open(conf, 'a') as conffile:
+                conffile.write('\nServerName www.example.com:80\n')
+            conffile.closed
     except Exception as e:
         logging.getLogger(__name__).error(e)
 
