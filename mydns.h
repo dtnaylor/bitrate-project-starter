@@ -19,7 +19,7 @@ int init_mydns(const char *dns_ip, unsigned int dns_port);
  * resolve() as follows:
  *
  * struct addrinfo *result;
- * int rc = getaddrinfo("video.cs.cmu.edu", "8080", null, &result);
+ * int rc = resolve("video.cs.cmu.edu", "8080", null, &result);
  * if (rc != 0) {
  *     // handle error
  * }
